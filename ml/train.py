@@ -1,0 +1,94 @@
+# ml/my_train.py
+import os
+import numpy as np
+import pandas as pd
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import xgboost as xgb
+import joblib
+
+def load_data():
+    housing = fetch_california_housing()
+    return housing.data, housing.target, housing.feature_names
+
+def engineer(X, names):
+    df = {n: X[:, i] for i, n in enumerate(names)}
+    extra = np.column_stack([
+        df["AveRooms"] / (df["AveOccup"] + 1e-5),
+        df["AveBedrms"] / (df["AveRooms"] + 1e-5),
+        df["Population"] / (df["AveOccup"] + 1e-5),
+        df["MedInc"] / (df["AveRooms"] + 1e-5),
+        df["Latitude"] * df["Longitude"],
+        np.sqrt((df["Latitude"] - 36.7)**2 + (df["Longitude"] - (-119.4))**2),
+        np.log1p(df["Population"]),
+        np.log1p(df["AveOccup"]),
+        np.log1p(df["MedInc"]),
+        df["MedInc"] ** 2,
+        df["AveOccup"] ** 2
+    ])
+    return np.hstack([X, extra])
+
+def add_clusters(X, kmeans_model):
+    coords = X[:, 6:8]
+    clusters = kmeans_model.predict(coords).reshape(-1, 1)
+    dists = kmeans_model.transform(coords).min(axis=1).reshape(-1, 1)
+    return np.hstack([X, clusters, dists])
+
+def main():
+    print("=" * 60)
+    print("CloudPredict - Entrainement Modèle Optimisé (XGBoost)")
+    print("=" * 60)
+    
+    print("\n[1/5] Chargement et Feature Engineering...")
+    X_raw, y, names = load_data()
+    X_eng = engineer(X_raw, names)
+    
+    print("\n[2/5] Division train/test (80/20)...")
+    X_train, X_test, y_train, y_test = train_test_split(X_eng, y, test_size=0.2, random_state=42)
+    
+    print("\n[3/5] Clustering Géographique (30 zones)...")
+    # REMIS A 30 POUR MATCHER TON CODE EXACT
+    km = KMeans(n_clusters=30, random_state=42, n_init=10)
+    km.fit(X_train[:, 6:8])
+    X_train_clust = add_clusters(X_train, km)
+    
+    print("\n[4/5] Normalisation et Entraînement XGBoost...")
+    scaler = StandardScaler()
+    X_train_s = scaler.fit_transform(X_train_clust)
+    
+    best_params = {
+        'n_estimators': 2684,
+        'learning_rate': 0.023463258960422607,
+        'max_depth': 6,
+        'min_child_weight': 3,
+        'subsample': 0.909388760000992,
+        'colsample_bytree': 0.8442245426717814,
+        'gamma': 0.0001307453591362648,
+        'reg_alpha': 0.5844805204033486,
+        'reg_lambda': 2.0006219005796497,
+        'random_state': 42,
+        'n_jobs': -1,
+        'eval_metric': 'rmse'
+    }
+    model = xgb.XGBRegressor(**best_params)
+    
+    # Entraînement
+    model.fit(X_train_s, y_train, verbose=False)
+    
+    print("\n[5/5] Sauvegarde des artefacts (Model, Scaler, KMeans)...")
+    models_dir = os.path.join(os.path.dirname(__file__), "models")
+    os.makedirs(models_dir, exist_ok=True)
+    
+    joblib.dump(model, os.path.join(models_dir, "xgb_model.joblib"))
+    joblib.dump(scaler, os.path.join(models_dir, "scaler.joblib"))
+    joblib.dump(km, os.path.join(models_dir, "kmeans.joblib"))
+    
+    print("\n" + "=" * 60)
+    print("Entrainement et sauvegarde terminés avec succès !")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    main()
