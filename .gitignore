@@ -1,2 +1,39 @@
-venv/
+# --- Python ---
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# --- Environnement Virtuel ---
+venv/
+env/
+.env
+
+# --- IDE (Configurations locales) ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Système d'exploitation ---
+.DS_Store
+Thumbs.db
+
+# --- Modèles ML (Artefacts) ---
+# On laisse ces lignes commentées pour que ton prof puisse voir tes .joblib sur GitHub
+# Si tu ne veux plus les envoyer, retire le '#' devant :
+# ml/models/*.joblib
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Logs & Tests ---
+*.log
+.pytest_cache/
+htmlcov/
+.coverage
