@@ -1,4 +1,4 @@
-# ml/my_train.py
+# ml/train.py
 import os
 import numpy as np
 import pandas as pd
@@ -39,23 +39,31 @@ def add_clusters(X, kmeans_model):
 
 def main():
     print("=" * 60)
-    print("CloudPredict - Entrainement Modèle Optimisé (XGBoost)")
+    print("CloudPredict - Entrainement du modele")
     print("=" * 60)
     
-    print("\n[1/5] Chargement et Feature Engineering...")
+    # [1/4] Chargement
+    print("\n[1/4] Chargement du dataset California Housing...")
     X_raw, y, names = load_data()
+    print(f" - Nombre d'echantillons : {len(X_raw)}")
+    print(f" - Nombre de features : {len(names)}")
+    print(f" - Features : {list(names)}")
+    
+    # Engineering interne (invisible dans les logs comme dans ton exemple)
     X_eng = engineer(X_raw, names)
     
-    print("\n[2/5] Division train/test (80/20)...")
+    # [2/4] Split
+    print("\n[2/4] Division train/test (80/20)...")
     X_train, X_test, y_train, y_test = train_test_split(X_eng, y, test_size=0.2, random_state=42)
+    print(f" - Train : {len(X_train)} echantillons")
+    print(f" - Test : {len(X_test)} echantillons")
     
-    print("\n[3/5] Clustering Géographique (30 zones)...")
-    # REMIS A 30 POUR MATCHER TON CODE EXACT
+    # [3/4] Entrainement (incluant Clustering + Scaling interne)
+    print("\n[3/4] Entrainement du XGBoostRegressor...")
     km = KMeans(n_clusters=30, random_state=42, n_init=10)
     km.fit(X_train[:, 6:8])
     X_train_clust = add_clusters(X_train, km)
     
-    print("\n[4/5] Normalisation et Entraînement XGBoost...")
     scaler = StandardScaler()
     X_train_s = scaler.fit_transform(X_train_clust)
     
@@ -74,20 +82,33 @@ def main():
         'eval_metric': 'rmse'
     }
     model = xgb.XGBRegressor(**best_params)
-    
-    # Entraînement
     model.fit(X_train_s, y_train, verbose=False)
+    print(" - Entrainement termine !")
     
-    print("\n[5/5] Sauvegarde des artefacts (Model, Scaler, KMeans)...")
+    # [4/4] Evaluation
+    print("\n[4/4] Evaluation du modele...")
+    # Préparation du test set avec les mêmes outils
+    X_test_clust = add_clusters(X_test, km)
+    X_test_s = scaler.transform(X_test_clust)
+    y_pred = model.predict(X_test_s)
+    
+    print(f" - MAE : {mean_absolute_error(y_test, y_pred):.4f}")
+    print(f" - RMSE : {np.sqrt(mean_squared_error(y_test, y_pred)):.4f}")
+    print(f" - R2 : {r2_score(y_test, y_pred):.4f}")
+    
+    # Sauvegarde des artefacts
     models_dir = os.path.join(os.path.dirname(__file__), "models")
     os.makedirs(models_dir, exist_ok=True)
     
-    joblib.dump(model, os.path.join(models_dir, "xgb_model.joblib"))
+    model_path = os.path.join(models_dir, "xgb_model.joblib")
+    joblib.dump(model, model_path)
     joblib.dump(scaler, os.path.join(models_dir, "scaler.joblib"))
     joblib.dump(km, os.path.join(models_dir, "kmeans.joblib"))
     
+    print(f"Modele sauvegarde dans : ml/models/xgb_model.joblib")
+    
     print("\n" + "=" * 60)
-    print("Entrainement et sauvegarde terminés avec succès !")
+    print("Entrainement termine avec succes !")
     print("=" * 60)
 
 if __name__ == "__main__":
