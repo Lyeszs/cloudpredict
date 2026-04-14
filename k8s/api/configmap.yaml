@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudpredict-config
+  namespace: cloudpredict
+  labels:
+    app: cloudpredict
+    component: api
+data:
+  FLASK_ENV: "production"
+  FLASK_APP: "app.py"
+  MODEL_PATH: "/app/models/model.pkl"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "cloudpredict"
+  POSTGRES_USER: "cloudpredict"
+  LOG_LEVEL: "INFO"
