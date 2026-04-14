@@ -91,3 +91,8 @@ def predict(data):
         "features_used": FEATURE_NAMES,
         "input_values": features_raw[0].tolist()
     }, None
+### Fonction ajouté pour faire les tests du TP
+def get_model():
+    """Alias pour le test : retourne uniquement le modèle depuis le pipeline."""
+    model, _, _ = get_pipeline()
+    return model
