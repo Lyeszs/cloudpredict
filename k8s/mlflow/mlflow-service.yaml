@@ -1,0 +1,17 @@
+# k8s/mlflow/mlflow-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow-service
+  namespace: default
+  labels:
+    app: mlflow
+spec:
+  type: NodePort
+  selector:
+    app: mlflow
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+      nodePort: 30500
