@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-provider
+  namespace: monitoring
+  labels:
+    app: grafana
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: 'default'
+        orgId: 1
+        folder: 'CloudPredict'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-cloudpredict
+  namespace: monitoring
+  labels:
+    app: grafana
+data:
+  cloudpredict.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "id": 1,
+          "title": "Taux de requetes de prediction (req/s)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "sum(rate(prediction_requests_total[5m]))", "legendFormat": "Total req/s", "refId": "A" },
+            { "expr": "sum(rate(prediction_requests_total{status=\"success\"}[5m]))", "legendFormat": "Success req/s", "refId": "B" },
+            { "expr": "sum(rate(prediction_requests_total{status=\"error\"}[5m]))", "legendFormat": "Error req/s", "refId": "C" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "axisLabel": "req/s", "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 },
+              "unit": "reqps"
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Latence P95 (secondes)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "histogram_quantile(0.95, sum(rate(prediction_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "A" },
+            { "expr": "histogram_quantile(0.50, sum(rate(prediction_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50 (median)", "refId": "B" }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.5 }] } }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Taux d'erreur (%)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "sum(rate(prediction_errors_total[5m])) / sum(rate(prediction_requests_total[5m])) * 100", "legendFormat": "Error Rate %", "refId": "A" }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "percent", "color": { "fixedColor": "red", "mode": "fixed" } }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Pods actifs CloudPredict",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "count(kube_pod_status_phase{namespace=\"cloudpredict\", phase=\"Running\"})", "legendFormat": "Pods Running", "refId": "A" }
+          ],
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 1 }, { "color": "green", "value": 2 }] } }
+          }
+        }
+      ],
+      "schemaVersion": 39,
+      "title": "CloudPredict - ML Monitoring",
+      "uid": "cloudpredict-ml-monitoring",
+      "version": 1
+    }
