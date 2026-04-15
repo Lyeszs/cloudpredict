@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-name: cloudpredict
-labels:
-app: cloudpredict
-part-of: cloudpredict-platform
+  name:  cloudpredict
+  labels:
+    app: cloudpredict
+    part-of: cloudpredict-platform
