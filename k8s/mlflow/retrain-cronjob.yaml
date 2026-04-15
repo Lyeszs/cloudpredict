@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: retrain-cronjob
+  namespace: default
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: retrain
+            image: python:3.11-slim
+            command:
+            - /bin/bash
+            - -c
+            - |
+              pip install mlflow xgboost scikit-learn evidently pandas numpy joblib --quiet &&
+              cd /app &&
+              python retrain.py
+            env:
+            - name: MLFLOW_TRACKING_URI
+              value: "http://mlflow-service:5000"
+            - name: REFERENCE_DATA_PATH
+              value: "/data/reference_data.csv"
+            - name: MODEL_OUTPUT_PATH
+              value: "/data/model.joblib"
+            - name: REPORTS_DIR
+              value: "/data/reports"
+            volumeMounts:
+            - name: ml-scripts
+              mountPath: /app
+            - name: ml-data
+              mountPath: /data
+          restartPolicy: OnFailure
+          volumes:
+          - name: ml-scripts
+            configMap:
+              name: ml-scripts-configmap
+          - name: ml-data
+            persistentVolumeClaim:
+              claimName: mlflow-pvc

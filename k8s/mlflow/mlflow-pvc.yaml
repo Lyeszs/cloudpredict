@@ -3,7 +3,10 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mlflow-pvc
-  namespace: default
+  namespace: cloudpredict
+  labels:
+    app: cloudpredict
+    component: mlflow
 spec:
   accessModes:
     - ReadWriteOnce

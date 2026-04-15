@@ -34,6 +34,12 @@ spec:
             - configMapRef:
                 name: cloudpredict-config
           env:
+            - name: MLFLOW_TRACKING_URI
+              value: "http://mlflow-service:5000"
+            - name: MODEL_NAME
+              value: "housing-price-predictor"
+            - name: MODEL_STAGE
+              value: "Production"
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

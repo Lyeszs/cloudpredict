@@ -1,68 +1,65 @@
-# k8s/mlflow/mlflow-deployment.yaml
-#
-# CORRECTIF OOMKilled :
-#   - Utilise l'image officielle ghcr.io/mlflow/mlflow (pas de pip install au démarrage)
-#   - Augmente les limites mémoire à 1500Mi (suffisant pour MLflow seul)
-#   - initialDelaySeconds réduit car plus de pip install à attendre
-#
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mlflow-server
-  namespace: default
+  namespace: cloudpredict
   labels:
     app: mlflow
+    component: mlflow
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mlflow
+      component: mlflow
   template:
     metadata:
       labels:
-        app: mlflow
+        component: mlflow
     spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.28
+        command: ['sh', '-c', 'until nc -z postgres-service 5432; do echo waiting for postgres; sleep 2; done;']
       containers:
-      - name: mlflow
-        image: ghcr.io/mlflow/mlflow:v2.13.0
-        command:
-        - mlflow
-        - server
-        - --backend-store-uri
-        - sqlite:////mlflow/mlflow.db
-        - --default-artifact-root
-        - /mlflow/artifacts
-        - --host
-        - "0.0.0.0"
-        - --port
-        - "5000"
+      - name: mlflow-server
+        image: ghcr.io/mlflow/mlflow:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000
-          name: mlflow-ui
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: cloudpredict-config
+              key: POSTGRES_USER
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: cloudpredict-config
+              key: POSTGRES_DB
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cloudpredict-secret
+              key: POSTGRES_PASSWORD
+        # Construction de l'URI de connexion SQLAlchemy
+        - name: MLFLOW_BACKEND_STORE_URI
+          value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres-service:5432/$(POSTGRES_DB)
+        - name: MLFLOW_ARTIFACT_ROOT
+          value: /mlflow/artifacts
+        # Écrase la commande par défaut pour installer le driver manquant avant de lancer le serveur
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          pip install psycopg2-binary
+          mlflow server \
+            --host=0.0.0.0 \
+            --port=5000 \
+            --backend-store-uri=${MLFLOW_BACKEND_STORE_URI} \
+            --default-artifact-root mlflow-artifacts:/ --artifacts-destination ${MLFLOW_ARTIFACT_ROOT}
         volumeMounts:
         - name: mlflow-storage
           mountPath: /mlflow
-        resources:
-          requests:
-            cpu: "250m"
-            memory: "512Mi"
-          limits:
-            cpu: "1"
-            memory: "1500Mi"
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 20
-          periodSeconds: 10
-          failureThreshold: 6
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 40
-          periodSeconds: 30
-          failureThreshold: 5
       volumes:
       - name: mlflow-storage
         persistentVolumeClaim:
