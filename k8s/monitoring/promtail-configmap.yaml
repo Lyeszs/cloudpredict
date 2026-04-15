@@ -23,19 +23,17 @@ data:
               job: kubernetes-pods
               __path__: /var/log/pods/*/*/*.log
         pipeline_stages:
-          # Extraction manuelle depuis le nom physique des dossiers
           - regex:
               source: filename
-              expression: "(?P<namespace>[^_]+)_(?P<pod>[^_]+)_[^/]+/(?P<container>[^/]+)/.*\\.log"
+              # On cherche spécifiquement ce qui est APRES /var/log/pods/ et AVANT le premier underscore _
+              expression: "/var/log/pods/(?P<namespace>[^/_]+)_(?P<pod>[^_]+)_[^/]+/(?P<container>[^/]+)/.*\\.log"
           - labels:
               namespace:
               pod:
               container:
-          # On clone le nom du conteneur en tant que label 'app' pour satisfaire ton Dashboard Grafana
           - template:
               source: app
               template: '{{ .container }}'
           - labels:
               app:
-          # Nettoyage du JSON Docker
           - docker: {}

@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+  labels:
+    app: prometheus
+data:
+  alerts.yml: |
+    groups:
+      - name: cloudpredict-alerts
+        rules:
+          # Alerte 1 : Taux d'erreur élevé
+          - alert: HighErrorRate
+            expr: |
+              (
+                sum(rate(prediction_errors_total[5m]))
+                /
+                sum(rate(prediction_requests_total[5m]))
+              ) * 100 > 10
+            for: 5m
+            labels:
+              severity: critical
+              team: ml-platform
+            annotations:
+              summary: "Taux d'erreur de prediction eleve"
+              description: "Le taux d'erreur des predictions est superieur a 10% depuis 5 minutes."
+              runbook_url: "https://wiki.internal/runbooks/high-error-rate"
+
+          # Alerte 2 : Latence élevée
+          - alert: HighLatency
+            expr: |
+              histogram_quantile(0.95,
+                sum(rate(prediction_duration_seconds_bucket[5m])) by (le)
+              ) > 0.5
+            for: 5m
+            labels:
+              severity: warning
+              team: ml-platform
+            annotations:
+              summary: "Latence P95 des predictions elevee"
+              description: "La latence P95 des predictions depasse 500ms depuis 5 minutes."
+              runbook_url: "https://wiki.internal/runbooks/high-latency"
+
+          # Alerte 3 : Pod down
+          - alert: PodDown
+            expr: |
+              count(up{job="cloudpredict-api"} == 1) < 2
+            for: 1m
+            labels:
+              severity: critical
+              team: ml-platform
+            annotations:
+              summary: "Replicas CloudPredict insuffisants"
+              description: "Moins de 2 replicas de l'API CloudPredict sont actifs depuis 1 minute."
+              runbook_url: "https://wiki.internal/runbooks/pod-down"
+
+      - name: monitoring-health
+        rules:
+          # Alerte santé du monitoring
+          - alert: PrometheusTargetDown
+            expr: up == 0
+            for: 2m
+            labels:
+              severity: warning
+              team: platform
+            annotations:
+              summary: "Cible Prometheus injoignable"
+              description: "La cible {{ $labels.job }} / {{ $labels.instance }} est DOWN depuis 2 minutes."
